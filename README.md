@@ -1,6 +1,6 @@
 **Chicken Invaders**
 ***
-|Controls|
+|Controls||
 |---------------|-------|
 |GO		| `G	|
 |PAUSE		| `Z	|
