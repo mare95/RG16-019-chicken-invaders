@@ -2,11 +2,13 @@
 #include<stdio.h>
 #include <time.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 #define TIMER_ID1 0
 #define TIMER_INTERVAL1 50
 #define TIMER_ID2 1
 #define TIMER_INTERVAL2 50
+#define TIMER_ID3 2
+#define TIMER_INTERVAL3 50
 
 #define GORE_MAX 6
 #define DOLE_MAX 0
@@ -15,7 +17,9 @@
 #define LEVO_MAX_K -15
 #define DESNO_MAX_K 15
 
-#define SPEED 0.2 /*brzina kojom se krece avion*/
+#define MAX_BULLET_NUMBER 100
+#define SPEED 0.5 /*brzina kojom se krece avion*/
+#define BULLET_SPEED 3
 
 /*komponente za avion*/
 GLfloat ambient_tp[] 	= {0.6, 0.2, 0.2, 1}; /*crveno*/
@@ -31,27 +35,39 @@ GLfloat difuz_ttc[] 	= {0.6, 0.1, 0.1, 1};
 GLfloat ambient_tc[] 	= {0.1, 0.1, 0.3, 1 }; /*plavo*/
 GLfloat difuz_tc[] 	= {0.4, 0.1, 0.1, 1};
 
+/*komponente za metak*/
+GLfloat ambient_z[] 	= {0.1, 1, 0.3, 1 }; /*plavo*/
+GLfloat difuz_z[] 	= {0.1, 1, 0.1, 1};
+
+static float bullet_xpos[MAX_BULLET_NUMBER];
+static float bullet_ypos[MAX_BULLET_NUMBER];
+
 static int window_width;
 static int window_height;
 
-static float v_x=0.2; /*brzina kokoske po x*/
+static float v_x=0.4; /*brzina kokoske po x*/
 
 static float x_curr, y_curr;    /* Tekuce koordinate aviona. */
 static int napred=0;/*samo da nije 1 ili -1*/
 static int levo=0;/*flegovi smera kretanja aviona*/
 
 static float cx_curr, cy_curr;	/* Tekuce koordinate kokoske*/
+static float bullety_curr;
+static float bulletx_curr;
+static bool fire;
+static int run;
 
 static int animation_ongoing;   /* Fleg koji odredjuje da li je
                                  * animacija u toku. */
 void drawChicken();
 void drawPlane();
-
+void drawBullet();
 static void on_display(void);
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 static void on_timer1(int value);
 static void on_timer2(int value);
+static void on_timer3(int value);
 void inicijalizacija_osvetljenja();
 
 int main(int argc, char **argv){
@@ -70,6 +86,15 @@ int main(int argc, char **argv){
     	y_curr = 0;
 	cx_curr=0;
 	cy_curr=0;
+	bullety_curr=0;
+	bulletx_curr=0;
+	fire=false;
+
+	/*inicijalizacija pozicija za metke*/
+        for (int i = 0; i < MAX_BULLET_NUMBER; i++) {
+            bullet_xpos[i] = 0;
+            bullet_ypos[i] = -1;
+        }
 
     	animation_ongoing = 0;
 
@@ -77,7 +102,6 @@ int main(int argc, char **argv){
 
 	glClearColor(0.1, 0.1, 0.1, 0);
 	glEnable(GL_DEPTH_TEST);
-	glLineWidth(3);
 
 	glutMainLoop();
 	return 0;
@@ -90,12 +114,10 @@ static void on_keyboard(unsigned char key, int x, int y){
 		case 'w':
 		case 'W':
 			napred=1;
-			/*printf("napred\n");*/
 			break;
     		case 'a':
 		case 'A':
 			levo=1;
-			/*printf("levo\n");*/
 			break;
    		case 's':
 		case 'S':
@@ -105,12 +127,14 @@ static void on_keyboard(unsigned char key, int x, int y){
 		case 'D':
 			levo=-1;
 			break;
+
     		case 'g':
    		case 'G':
     		    /* Pokrecemo igru*/
       		  if (animation_ongoing==0) {
         		glutTimerFunc(TIMER_INTERVAL1, on_timer1, TIMER_ID1);
 			glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
+			glutTimerFunc(TIMER_INTERVAL3, on_timer3, TIMER_ID3);
         		animation_ongoing = 1;
 			}
       		  break;
@@ -118,6 +142,19 @@ static void on_keyboard(unsigned char key, int x, int y){
 		case 'q':
 			glutFullScreen();
 			break;
+		case ' ':
+       			 /* Trazimo prazno mesto tj gledamo koji metak je otisao predaleko i na to
+			mesto postavljamo novi metak */
+       		 	{
+         		   int i, run = 1;
+         		   for (i = 0; run && (i < MAX_BULLET_NUMBER); i++)
+          		    if (bullet_ypos[i] < 0) {
+          		      bullet_ypos[i] = 0;
+          		      run = 0;
+          		  }
+        		}
+        		break;
+
     		case 'z':
     		case 'Z':
         		/* Zaustavljamo igru. */
@@ -148,6 +185,7 @@ static void on_display(void){
 
 	glTranslatef(x_curr, y_curr, 0);
 	drawPlane();
+	drawBullet();/*nije najsrecnije resenje jer su metak i avion u fazi, mora fix*/
 	glTranslatef(-x_curr, -y_curr, 0);/*ponistavamo transformaciju da ne utice na kokoske*/
 
 	/*iscrtavanje 3 reda kokoski*/
@@ -204,6 +242,21 @@ void drawPlane(){
 		glTranslatef(0, -1, 0);
 		glutSolidCube(1);
 	glPopMatrix();
+}
+/*metak*/
+void drawBullet(){
+	for (int i = 0; i < MAX_BULLET_NUMBER; i++)
+        	if (bullet_ypos[i] >= 0){
+		glPushMatrix();
+			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_z);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_z);
+			glColor3f(0.7, 0.7, 0.8);
+			glScalef(0.07,0.4,0.1);
+			glTranslatef(0,-25,0);
+			glTranslatef(bullet_xpos[i],bullet_ypos[i],0);
+			glutSolidSphere(1, 10, 10);
+		glPopMatrix();
+		}	
 }
 
 /*kokoska*/
@@ -291,9 +344,8 @@ static void on_timer1(int value){
 		glutPostRedisplay();
 
 		/* Po potrebi se ponovo postavlja tajmer. */
-		if (animation_ongoing) {
+		if (animation_ongoing)
 			glutTimerFunc(TIMER_INTERVAL1, on_timer1, TIMER_ID1);
-		}
 	}
 }
 
@@ -303,29 +355,43 @@ static void on_timer2(int value){
 		return;
 
 	cx_curr += v_x;
-	if (cx_curr <= -15){ /*leva granica*/
+	if (cx_curr <= LEVO_MAX_K){ /*leva granica*/
 		cy_curr=cy_curr-0.1; 
 		v_x *= -1; /*menjamo smer kretanja*/
 	}
-	else if(cx_curr <= -14){
+	else if(cx_curr <= LEVO_MAX_K+1){
 		cy_curr=cy_curr-0.1;
 	}
-	if (cx_curr >= 15){ /*desna granica*/
+	if (cx_curr >= DESNO_MAX_K){ /*desna granica*/
 		cy_curr=cy_curr-0.1;
 		v_x *= -1;
 	}
-	else if (cx_curr >= 14){
+	else if (cx_curr >= DESNO_MAX_K-1){
 		cy_curr=cy_curr-0.1;
 	}
 
 	napred=0;
 	levo=0;
 	glutPostRedisplay();
-	if (animation_ongoing) {
+	if (animation_ongoing) 
 		glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
-	}
 }
+static void on_timer3(int value){
+	if (value != TIMER_ID3)
+		return;
+	/*if(fire)
+		bullety_curr+=BULLET_SPEED;*/
+        for (int i = 0; i < MAX_BULLET_NUMBER; i++)
+        	if (bullet_ypos[i] >= 0) {
+        		bullet_ypos[i] += BULLET_SPEED;
+        		if (bullet_ypos[i] > 80)
+        			bullet_ypos[i] = -1;
+        	}
 
+	glutPostRedisplay();
+	if (animation_ongoing)
+		glutTimerFunc(TIMER_INTERVAL3, on_timer3, TIMER_ID3);
+}
 void inicijalizacija_osvetljenja(){
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);

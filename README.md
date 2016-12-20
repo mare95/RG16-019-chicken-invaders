@@ -2,6 +2,7 @@
 ***
 |Controls||
 |---------------|-------|
+|FIRE		| `SPACE`|
 |GO		| `G`	|
 |PAUSE		| `Z`	|
 |UP		| `W`	|
