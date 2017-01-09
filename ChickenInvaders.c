@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 #define TIMER_ID1 0
 #define TIMER_INTERVAL1 50
 #define TIMER_ID2 1
@@ -42,10 +43,19 @@ GLfloat difuz_z[] 	= {0.1, 1, 0.1, 1};
 static float bullet_xpos[MAX_BULLET_NUMBER];
 static float bullet_ypos[MAX_BULLET_NUMBER];
 
+
 static int window_width;
 static int window_height;
 
-static float v_x=0.4; /*brzina kokoske po x*/
+static float v_x=1.5; /*brzina kokoske po x*/
+
+typedef struct{
+double x_pos;
+double y_pos;
+bool alive;
+}chicken;
+chicken Chicken[10];
+
 
 static float x_curr, y_curr;    /* Tekuce koordinate aviona. */
 static int napred=0;/*samo da nije 1 ili -1*/
@@ -59,9 +69,12 @@ static int run;
 
 static int animation_ongoing;   /* Fleg koji odredjuje da li je
                                  * animacija u toku. */
-void drawChicken();
+void drawChicken(int x, int y, int z);
 void drawPlane();
 void drawBullet();
+void drawColider(int x, int y, int z);
+void drawColider1(int x, int y, int z);
+
 static void on_display(void);
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
@@ -69,6 +82,7 @@ static void on_timer1(int value);
 static void on_timer2(int value);
 static void on_timer3(int value);
 void inicijalizacija_osvetljenja();
+void kolizija_avion_kokoska();
 
 int main(int argc, char **argv){
 	glutInit(&argc, argv);
@@ -187,24 +201,24 @@ static void on_display(void){
 	drawPlane();
 	drawBullet();/*nije najsrecnije resenje jer su metak i avion u fazi, mora fix*/
 	glTranslatef(-x_curr, -y_curr, 0);/*ponistavamo transformaciju da ne utice na kokoske*/
-
+	
 	/*iscrtavanje 3 reda kokoski*/
-	glTranslatef(cx_curr, 10+cy_curr, 0);
+	glPushMatrix();
+	glTranslatef(-22+cx_curr, 20+cy_curr, 0);
 	for(int i=0; i<10;i++){
-		glTranslatef(4, 0, 0);
-		drawChicken();
+		drawChicken(4, 0, 0);
+	}
+	/*glTranslatef(-40, -4, 0);
+	for(int i=0; i<10;i++){
+		drawChicken(4, 0, 0);
 	}
 	glTranslatef(-40, -4, 0);
 	for(int i=0; i<10;i++){
-		glTranslatef(4, 0, 0);
-		drawChicken();
-	}
-	glTranslatef(-40, -4, 0);
-	for(int i=0; i<10;i++){
-		glTranslatef(4, 0, 0);
-		drawChicken();
-	}
-	glutSwapBuffers();
+		drawChicken(4, 0, 0);
+	}*/
+	glPopMatrix();
+	kolizija_avion_kokoska();
+glutSwapBuffers();
 }
 
 /*avion*/
@@ -256,17 +270,38 @@ void drawBullet(){
 			glTranslatef(bullet_xpos[i],bullet_ypos[i],0);
 			glutSolidSphere(1, 10, 10);
 		glPopMatrix();
-		}	
+		}
 }
 
 /*kokoska*/
-void drawChicken(){
+void drawColider(int x, int y, int z){
+	glTranslatef(x, y, z);
+	glPushMatrix();
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_tc);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_tp);
+		glScalef(3, 3, 0.5);
+		glutSolidCube(1);
+	glPopMatrix();
+	glTranslatef(-x,-y,-z);
+}
+void drawColider1(int x, int y, int z){
+	glTranslatef(x, y, z);
+	glPushMatrix();
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_tc);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_tp);
+		glScalef(40, 3, 0.5);
+		glutSolidCube(1);
+	glPopMatrix();
+	glTranslatef(-x,-y,-z);
+}
+void drawChicken(int x, int y, int z){
+	glTranslatef(x, y, z);
 	glPushMatrix();
 		/*telo*/
 		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
 		glColor3f(0.5, 0.1, 0.1);
-		glTranslatef(-22, 10, 0);
+		glTranslatef(0, 0, 0);
 		glScalef(0.5, 1, 0.5);
 		glutSolidSphere(1, 10, 10);
 		/*glava*/
@@ -356,18 +391,18 @@ static void on_timer2(int value){
 
 	cx_curr += v_x;
 	if (cx_curr <= LEVO_MAX_K){ /*leva granica*/
-		cy_curr=cy_curr-0.1; 
+		cy_curr=cy_curr-0.5; 
 		v_x *= -1; /*menjamo smer kretanja*/
 	}
 	else if(cx_curr <= LEVO_MAX_K+1){
-		cy_curr=cy_curr-0.1;
+		cy_curr=cy_curr-0.5;
 	}
 	if (cx_curr >= DESNO_MAX_K){ /*desna granica*/
-		cy_curr=cy_curr-0.1;
+		cy_curr=cy_curr-0.5;
 		v_x *= -1;
 	}
 	else if (cx_curr >= DESNO_MAX_K-1){
-		cy_curr=cy_curr-0.1;
+		cy_curr=cy_curr-0.5;
 	}
 
 	napred=0;
@@ -379,8 +414,6 @@ static void on_timer2(int value){
 static void on_timer3(int value){
 	if (value != TIMER_ID3)
 		return;
-	/*if(fire)
-		bullety_curr+=BULLET_SPEED;*/
         for (int i = 0; i < MAX_BULLET_NUMBER; i++)
         	if (bullet_ypos[i] >= 0) {
         		bullet_ypos[i] += BULLET_SPEED;
@@ -409,3 +442,15 @@ void inicijalizacija_osvetljenja(){
 	GLfloat pozicija[] = {2, 5, 10, 1};
 	glLightfv(GL_LIGHT0, GL_POSITION, pozicija);
 }
+
+void kolizija_avion_kokoska(){
+	float ax=x_curr;
+	float ay=y_curr-11.5;
+	float bx=cx_curr;
+	float by=cy_curr+20;
+	
+	if(ax>bx-20 && ax<bx+20 && ay>by-3.4 && ay<by)
+		animation_ongoing=0;
+
+}
+
