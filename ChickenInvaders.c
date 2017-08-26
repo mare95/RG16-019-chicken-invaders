@@ -10,39 +10,44 @@
 #define TIMER_ID3 2
 #define TIMER_INTERVAL3 50
 
-#define GORE_MAX 6
+/*pocetak ogranicenja u kretanju aviona*/
+#define GORE_MAX 6 
 #define DOLE_MAX 0
 #define LEVO_MAX -20.1
-#define DESNO_MAX 20.1
+#define DESNO_MAX 20.1 
+/*kraj ogranicenja u kretanju aviona*/
+
+/*pocetak ogranicenja u kretanju kokoske*/
 #define LEVO_MAX_K -15
 #define DESNO_MAX_K 15
+/*kraj ogranicenja u kretanju kokoske*/
 
 #define MAX_BULLET_NUMBER 100
 #define SPEED 0.5 /*brzina kojom se krece avion*/
 #define BULLET_SPEED 3
-
+#define BOSS_CHICKEN_STRENGTH 10
 
 
 /*komponente za avion*/
-GLfloat ambient_tp[] 	= {0.6, 0.2, 0.2, 1}; /*crveno*/
+GLfloat ambient_tp[] 	= {0.6, 0.2, 0.2, 1}; /*tamno plavo*/
 GLfloat difuz_tp[] 	= {0.1, 0.1, 0.5, 1};
-GLfloat ambient_sp[] 	= {0.6, 0.2, 0.2, 1}; /*crveno*/
+GLfloat ambient_sp[] 	= {0.6, 0.2, 0.2, 1}; /*svetlo plavo*/
 GLfloat difuz_sp[] 	= {0.1, 0.1, 0.6, 1};
 
 /*komponente za kokosku*/
-GLfloat ambient_c[] 	= {0.3, 0.3, 0.7, 1 }; /*plavo*/
+GLfloat ambient_c[] 	= {0.3, 0.3, 0.7, 1 }; /*crveno*/
 GLfloat difuz_c[] 	= {0.5, 0.1, 0.1, 1};
-GLfloat ambient_ttc[] 	= {0.3, 0.3, 0.7, 1 }; /*plavo*/
+GLfloat ambient_ttc[] 	= {0.3, 0.3, 0.7, 1 }; /*tamno tamno crveno*/
 GLfloat difuz_ttc[] 	= {0.6, 0.1, 0.1, 1};
-GLfloat ambient_tc[] 	= {0.1, 0.1, 0.3, 1 }; /*plavo*/
+GLfloat ambient_tc[] 	= {0.1, 0.1, 0.3, 1 }; /*tamno crveno*/
 GLfloat difuz_tc[] 	= {0.4, 0.1, 0.1, 1};
 
 /*komponente za metak*/
-GLfloat ambient_z[] 	= {0.1, 1, 0.3, 1 }; /*plavo*/
+GLfloat ambient_z[] 	= {0.1, 1, 0.3, 1 }; /*zeleno*/
 GLfloat difuz_z[] 	= {0.1, 1, 0.1, 1};
 
-static float bullet_xpos[MAX_BULLET_NUMBER];
-static float bullet_ypos[MAX_BULLET_NUMBER];
+static float bullet_xpos[MAX_BULLET_NUMBER]; /*x koordinata metka*/
+static float bullet_ypos[MAX_BULLET_NUMBER]; /*y koordinata metka*/
 
 static int window_width;
 static int window_height;
@@ -50,12 +55,15 @@ static int window_height;
 static float v_x=0.4; /*brzina kokoske po x*/
 static float BOSS_CHICKEN_SPEED = 0.1;
 static float x_curr, y_curr;    /* Tekuce koordinate aviona. */
+
+/*flegovi smera kretanja aviona pocetak*/
 static int napred=0;/*samo da nije 1 ili -1*/
-static int levo=0;/*flegovi smera kretanja aviona*/
+static int levo=0;
+/*flegovi smera kretanja aviona kraj*/
 
 static float cx_curr, cy_curr;	/* Tekuce koordinate kokoske*/
-static float bcx_curr, bcy_curr;
-bool lvl2;
+static float bcx_curr, bcy_curr; /* Tekuce koordinate boss kokoske*/
+bool lvl2; /*indikator za iscrtavanje drugog nivoa*/
 
 static int bossChickenHealth;
 
@@ -75,10 +83,11 @@ static void on_reshape(int width, int height);
 static void on_timer1(int value);
 static void on_timer2(int value);
 static void on_timer3(int value);
-void inicijalizacija_osvetljenja();
 void kolizija_avion_kokoska();
 void kolizija_avion_boss_kokoska();
 int numOfDeathChickens;
+
+void inicijalizacija_osvetljenja();
 void init();
 
 
@@ -126,7 +135,7 @@ void init(){
 
 	numOfDeathChickens=0;
 	lvl2=false;
-	bossChickenHealth=5;
+	bossChickenHealth=BOSS_CHICKEN_STRENGTH;
 	/*inicijalizacija 3 reda kokosaka(colideri njihovi)*/
 	for(int i =0; i<10; i++){
 		kokoske1[i].x = 0;
@@ -169,7 +178,10 @@ static void on_keyboard(unsigned char key, int x, int y){
 		case 'D':
 			levo=-1;
 			break;
-
+		case 'r':
+		case 'R':
+			init();
+			break;
     		case 'g':
    		case 'G':
     		    /* Pokrecemo igru*/
@@ -260,7 +272,11 @@ static void on_display(void){
 
 	if(lvl2){//dodaj uslov za helte
 		drawBossChicken();
-		drawBossChickenColider();
+		if(!bossChickenHealth){
+			lvl2=false;
+			init();
+			}
+		//drawBossChickenColider();
 	}
 
 	
@@ -541,6 +557,7 @@ static void on_timer2(int value){
 	if (animation_ongoing) 
 		glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
 }
+
 static void on_timer3(int value){
 	if (value != TIMER_ID3)
 		return;
@@ -578,7 +595,6 @@ void inicijalizacija_osvetljenja(){
 	glLightfv(GL_LIGHT0, GL_POSITION, pozicija);
 }
 
-
 void kolizija_avion_kokoska(){
 	for(int i=0;i<10;i++){
 			//printf("%d. kokoska: %lf %lf, %s\n",i, kokoske1[i].x, kokoske1[i].y, kokoske1[i].alive? "yes" : "no");
@@ -607,7 +623,10 @@ void kolizija_avion_boss_kokoska(){
 	for(int i=0;i<MAX_BULLET_NUMBER;i++){
 		if(x_curr>=(bcx_curr - 7) && x_curr <= (bcx_curr+7) && bullet_ypos[i]/2.5>=32-bcy_curr
 		&& bullet_ypos[i]/2.5<=39-bcy_curr){
-			animation_ongoing=0;
+			bullet_ypos[i]=-1;
+			if(bossChickenHealth>0)
+				bossChickenHealth--;
+		//printf("%d\n", bossChickenHealth);
 		}
 	}
 
