@@ -3,6 +3,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #define TIMER_ID1 0
 #define TIMER_INTERVAL1 50
 #define TIMER_ID2 1
@@ -25,7 +26,7 @@
 #define MAX_BULLET_NUMBER 100
 #define SPEED 0.5 /*brzina kojom se krece avion*/
 #define BULLET_SPEED 3
-#define BOSS_CHICKEN_STRENGTH 10
+#define BOSS_CHICKEN_STRENGTH 1000
 
 
 /*komponente za avion*/
@@ -61,8 +62,10 @@ static int napred=0;/*samo da nije 1 ili -1*/
 static int levo=0;
 /*flegovi smera kretanja aviona kraj*/
 
-static float cx_curr, cy_curr;	/* Tekuce koordinate kokoske*/
-static float bcx_curr, bcy_curr; /* Tekuce koordinate boss kokoske*/
+static float cx_curr, cy_curr;	/* Tekuce koordinate kokoske (chicken x, chicken y))*/
+static float bcx_curr, bcy_curr; /* Tekuce koordinate boss kokoske (big chicken x, big chicken y)*/
+
+static float bex_curr, bey_curr; /*Tekuce koordinate velikog jajeta (big egg x, big egg y)*/
 bool lvl2; /*indikator za iscrtavanje drugog nivoa*/
 
 static int bossChickenHealth;
@@ -71,12 +74,15 @@ static int animation_ongoing;   /* Fleg koji odredjuje da li je
                                  * animacija u toku. */
 //void drawChicken();
 void drawPlane();
+void drawPlaneColider();
 void drawBullet();
+void drawBulletColider();
 void drawChicken();
 void drawChickenColider();
 void drawBossChicken();
 void drawBossChickenColider();
-void drawBulletColider();
+void drawBossChickenEgg();
+void drawBossChickenEggColider();
 static void on_display(void);
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
@@ -85,6 +91,7 @@ static void on_timer2(int value);
 static void on_timer3(int value);
 void kolizija_avion_kokoska();
 void kolizija_avion_boss_kokoska();
+void kolizija_avion_boss_jaja();
 int numOfDeathChickens;
 
 void inicijalizacija_osvetljenja();
@@ -120,13 +127,16 @@ void init(){
 	glutKeyboardFunc(on_keyboard);
 	glutReshapeFunc(on_reshape);
 
+	srand(time(NULL));
+
     	x_curr = 0;
     	y_curr = 0;
 	cx_curr=0;
 	cy_curr=0;
 	bcx_curr=0;
 	bcy_curr=0;
-
+	bex_curr=0;
+	bey_curr=0;
 	/*inicijalizacija pozicija za metke*/
         for (int i = 0; i < MAX_BULLET_NUMBER; i++) {
             bullet_xpos[i] = 0;
@@ -243,6 +253,10 @@ static void on_display(void){
 	//drawBulletColider();
 	glTranslatef(-x_curr, -y_curr, 0);/*ponistavamo transformaciju da ne utice na kokoske*/
 
+
+	//drawPlaneColider();
+
+
 	/*iscrtavanje 3 reda kokoski*/
 	glPushMatrix();
 	glTranslatef(cx_curr, 10+cy_curr, 0);
@@ -271,12 +285,18 @@ static void on_display(void){
 	glPopMatrix();
 
 	if(lvl2){//dodaj uslov za helte
-		drawBossChicken();
+		glPushMatrix();
+			glTranslatef(bcx_curr, -bcy_curr, 0);
+			drawBossChicken();
+			glTranslatef(0, -bey_curr, 0);
+			drawBossChickenEgg();
+		glPopMatrix();
 		if(!bossChickenHealth){
 			lvl2=false;
 			init();
-			}
+		}
 		//drawBossChickenColider();
+		//drawBossChickenEggColider();
 	}
 
 	
@@ -322,6 +342,17 @@ void drawPlane(){
 		glutSolidCube(1);
 	glPopMatrix();
 }
+
+void drawPlaneColider(){
+	glColor3f(0, 0.5, 0.5);
+	glBegin(GL_POLYGON);
+		glVertex3f(x_curr - 1.5, +y_curr-10, 0);//gornja leva
+		glVertex3f(x_curr +1.5,y_curr-10, 0);
+		glVertex3f(x_curr +1.5,y_curr-13, 0);//donja desna
+		glVertex3f(x_curr - 1.5,y_curr-13, 0);
+	glEnd();
+}
+
 /*metak*/
 void drawBullet(){
 	for (int i = 0; i < MAX_BULLET_NUMBER; i++)
@@ -415,12 +446,12 @@ void drawChicken(){
 }
 
 void drawBossChicken(){
-glPushMatrix();
+	glPushMatrix();
 		/*telo*/
 		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
 		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
 		glColor3f(0.5, 0.1, 0.1);
-		glTranslatef(bcx_curr+0, -bcy_curr+30, 0);
+		glTranslatef(0, 30, 0);
 		glScalef(2.5, 3, 2.5);
 		glutSolidSphere(1, 10, 10);
 		/*glava*/
@@ -463,6 +494,7 @@ glPushMatrix();
 		glScalef(1, 1, 1);
 		glTranslatef(-3.5, 0, 0);
 		glutSolidCube(1);
+		
 	glPopMatrix();
 }
 
@@ -474,9 +506,28 @@ void drawBossChickenColider(){
 		glVertex3f(bcx_curr +8,-bcy_curr +26, 0);//donja desna
 		glVertex3f(bcx_curr - 8,-bcy_curr + 26, 0);
 	glEnd();
-
 }
 
+void drawBossChickenEgg(){
+	glPushMatrix();
+			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
+			glColor3f(0.7, 0.7, 0.8);
+			glScalef(0.14,0.4,0.1);
+			glTranslatef(0,75,0);
+			glutSolidSphere(7, 10, 10);
+	glPopMatrix();
+}
+
+void drawBossChickenEggColider(){
+	glColor3f(0, 0.5, 0.5);
+	glBegin(GL_POLYGON);
+		glVertex3f(bcx_curr - 1, -bey_curr-bcy_curr+33, 0);//gornja leva
+		glVertex3f(bcx_curr +1,-bey_curr-bcy_curr+33, 0);
+		glVertex3f(bcx_curr +1,-bey_curr-bcy_curr +27, 0);//donja desna
+		glVertex3f(bcx_curr - 1,-bey_curr-bcy_curr + 27, 0);
+	glEnd();
+}
 static void on_timer1(int value){
     /*proverava se da li poziv dolazi od odgovarajuceg tajmera*/
 	if (value == TIMER_ID1){
@@ -512,7 +563,6 @@ static void on_timer1(int value){
 		/* Po potrebi se ponovo postavlja tajmer. */
 		if (animation_ongoing)
 			glutTimerFunc(TIMER_INTERVAL1, on_timer1, TIMER_ID1);
-	
 	}
 }
 
@@ -522,6 +572,7 @@ static void on_timer2(int value){
 		return;
 
 	cx_curr += v_x;
+
 	if (cx_curr <= LEVO_MAX_K){ /*leva granica*/
 		cy_curr=cy_curr-0.1; 
 		v_x *= -1; /*menjamo smer kretanja*/
@@ -544,15 +595,22 @@ static void on_timer2(int value){
 		kolizija_avion_kokoska();
 
 	if(lvl2){
-		
-			if(bcy_curr<20)
-				bcy_curr += 0.1;
-				printf("%f\n", bcy_curr);
+		if(bcy_curr<20){
+			bcy_curr += 0.1;
+		}
+		else{//velika kokoska se zaustavila (implementiramo kretanje jajeta)
+			bey_curr += 1;
+
+			int r=rand()%100 + 20;//random vreme ispaljivanja jaja
+			if(bey_curr>r)
+				bey_curr=0;
+			kolizija_avion_boss_jaja();
+		}
+		//printf("%f\n", bcy_curr);
 	
-			kolizija_avion_boss_kokoska();
+		kolizija_avion_boss_kokoska();
 	}
 		
-
 	glutPostRedisplay();
 	if (animation_ongoing) 
 		glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
@@ -574,8 +632,6 @@ static void on_timer3(int value){
 	if (animation_ongoing)
 		glutTimerFunc(TIMER_INTERVAL3, on_timer3, TIMER_ID3);
 }
-
-
 
 void inicijalizacija_osvetljenja(){
 	glEnable(GL_LIGHTING);
@@ -604,7 +660,7 @@ void kolizija_avion_kokoska(){
 			&& kokoske1[i].y+8>=bullet_ypos[m]/2.5){
 				if(kokoske1[i].alive){
 					kokoske1[i].alive=false;
-					bullet_ypos[i] = -1;
+					bullet_ypos[m] = -1;
 					numOfDeathChickens++;
 					if(numOfDeathChickens==10)
 						lvl2=true;
@@ -616,7 +672,6 @@ void kolizija_avion_kokoska(){
 			}
 		}
 	}
-
 }
 
 void kolizija_avion_boss_kokoska(){
@@ -629,6 +684,12 @@ void kolizija_avion_boss_kokoska(){
 		//printf("%d\n", bossChickenHealth);
 		}
 	}
+}
 
-
+void kolizija_avion_boss_jaja(){
+	if(((bcx_curr - 1) < (x_curr + 1.5)) && ((bcx_curr + 1) >= (x_curr - 1.5)) && 
+		((27-bey_curr-bcy_curr) < (y_curr - 11)) ){
+		sleep(1);
+		init();
+	}
 }
