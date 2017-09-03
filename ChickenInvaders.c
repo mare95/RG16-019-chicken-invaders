@@ -6,10 +6,6 @@
 #include <unistd.h>
 #define TIMER_ID1 0
 #define TIMER_INTERVAL1 35
-#define TIMER_ID2 1
-#define TIMER_INTERVAL2 35
-#define TIMER_ID3 2
-#define TIMER_INTERVAL3 35
 
 /*pocetak ogranicenja u kretanju aviona*/
 #define GORE_MAX 6 
@@ -92,8 +88,6 @@ static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 
 static void on_timer1(int value);
-static void on_timer2(int value);
-static void on_timer3(int value);
 
 void kolizija_avion_kokoska();
 void kolizija_avion_boss_kokoska();
@@ -214,11 +208,9 @@ static void on_keyboard(unsigned char key, int x, int y){
 			break;
     		case 'g':
    		case 'G':
-    		    /* Pokrecemo igru*/
+    		    /* Pokrecemo igru */
       		  if (animation_ongoing==0) {
         		glutTimerFunc(TIMER_INTERVAL1, on_timer1, TIMER_ID1);
-			glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
-			glutTimerFunc(TIMER_INTERVAL3, on_timer3, TIMER_ID3);
         		animation_ongoing = 1;
 			}
       		  break;
@@ -614,6 +606,8 @@ static void on_timer1(int value){
 
    	/*proverava se da li poziv dolazi od odgovarajuceg tajmera*/
 	if (value == TIMER_ID1){
+
+		//kretanje aviona pocetak
 		if(napred==1){
 		y_curr += SPEED;
 		  	if (y_curr >= GORE_MAX) {
@@ -639,6 +633,71 @@ static void on_timer1(int value){
 				x_curr = DESNO_MAX; 
 			}
 		}
+		napred=0;
+		levo=0;
+		//kretanje aviona kraj
+
+		//kretanje kokoske pocetak
+		cx_curr += v_x;
+
+		if (cx_curr <= LEVO_MAX_K){ /*leva granica*/
+			cy_curr=cy_curr-0.1; 
+			v_x *= -1;
+		}
+		else if(cx_curr <= LEVO_MAX_K+1){
+			cy_curr=cy_curr-0.1;
+		}
+		if (cx_curr >= DESNO_MAX_K){ /*desna granica*/
+			cy_curr=cy_curr-0.1;
+			v_x *= -1;
+		}
+		else if (cx_curr >= DESNO_MAX_K-1){
+			cy_curr=cy_curr-0.1;
+		}
+		//kretanje kokoske kraj
+
+		//kretanje metka pocetak
+		for (int i = 0; i < MAX_BULLET_NUMBER; i++)
+        	if (bullet_ypos[i] >= 0) {
+        		bullet_ypos[i] += BULLET_SPEED;
+        		if (bullet_ypos[i] > 80)
+        			bullet_ypos[i] = -1;
+        	}
+		//kretanje metka kraj
+
+
+		//jaje kokoske pocetak
+		if(eggy_curr<EGG_MAX_Y)
+			eggy_curr +=1;
+		else{
+			eggy_curr =0;
+			eggx_curr = cx_curr;
+		}
+		//jaje kokoske kraj
+
+		//provera da li li je igrac stigao do 2. nivoa
+		if(numOfDeathChickens!=30){
+			kolizija_avion_kokoska();
+			kolizija_jaje_avion();
+		}
+		else
+			lvl2=true;
+		//kraj provere
+
+		if(lvl2){
+			if(bcy_curr<20)//ako se velika kokoska nije pozicionirala na sredinu ekrana
+				bcy_curr += 0.1;
+			else{//velika kokoska se zaustavila (implementiramo kretanje jajeta)
+				bey_curr += 1;
+
+				int r=rand()%100 + 20;//random vreme ispaljivanja jajeta(duzina puta van ekrana)
+				if(bey_curr>r)
+					bey_curr=0;
+
+				kolizija_avion_boss_jaja();
+				kolizija_avion_boss_kokoska();
+			}
+		}
 
 		/* Forsira se ponovno iscrtavanje prozora. */
 		glutPostRedisplay();
@@ -647,89 +706,6 @@ static void on_timer1(int value){
 		if (animation_ongoing)
 			glutTimerFunc(TIMER_INTERVAL1, on_timer1, TIMER_ID1);
 	}
-}
-
-
-/*kretanje kokoske iz nivoa 1 i 2 + kretanje jajeta iz nivoa 1*/
-static void on_timer2(int value){
-
-	if (value != TIMER_ID2)
-		return;
-
-	//kretanje kokoske pocetak
-	cx_curr += v_x;
-
-	if (cx_curr <= LEVO_MAX_K){ /*leva granica*/
-		cy_curr=cy_curr-0.1; 
-		v_x *= -1;
-	}
-	else if(cx_curr <= LEVO_MAX_K+1){
-		cy_curr=cy_curr-0.1;
-	}
-	if (cx_curr >= DESNO_MAX_K){ /*desna granica*/
-		cy_curr=cy_curr-0.1;
-		v_x *= -1;
-	}
-	else if (cx_curr >= DESNO_MAX_K-1){
-		cy_curr=cy_curr-0.1;
-	}
-
-	napred=0;
-	levo=0;
-	//kretanje kokoske kraj
-
-	//jaje kokoske pocetak
-	if(eggy_curr<EGG_MAX_Y)
-		eggy_curr +=1;
-	else{
-		eggy_curr =0;
-		eggx_curr = cx_curr;
-	}
-	//jaje kokoske kraj
-
-	if(numOfDeathChickens!=30){
-		kolizija_avion_kokoska();
-		kolizija_jaje_avion();
-	}
-	else
-		lvl2=true;
-
-	if(lvl2){
-		if(bcy_curr<20)//ako se velika kokoska nije pozicionirala na sredinu ekrana
-			bcy_curr += 0.1;
-		else{//velika kokoska se zaustavila (implementiramo kretanje jajeta)
-			bey_curr += 1;
-
-			int r=rand()%100 + 20;//random vreme ispaljivanja jajeta(duzina puta van ekrana)
-			if(bey_curr>r)
-				bey_curr=0;
-
-			kolizija_avion_boss_jaja();
-			kolizija_avion_boss_kokoska();
-		}
-	}
-		
-	glutPostRedisplay();
-	if (animation_ongoing) 
-		glutTimerFunc(TIMER_INTERVAL2, on_timer2, TIMER_ID2);
-}
-
-/*kretanje metka*/
-static void on_timer3(int value){
-
-	if (value != TIMER_ID3)
-		return;
-
-        for (int i = 0; i < MAX_BULLET_NUMBER; i++)
-        	if (bullet_ypos[i] >= 0) {
-        		bullet_ypos[i] += BULLET_SPEED;
-        		if (bullet_ypos[i] > 80)
-        			bullet_ypos[i] = -1;
-        	}
-
-	glutPostRedisplay();
-	if (animation_ongoing)
-		glutTimerFunc(TIMER_INTERVAL3, on_timer3, TIMER_ID3);
 }
 
 void inicijalizacija_osvetljenja(){
