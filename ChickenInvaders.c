@@ -45,6 +45,15 @@ GLfloat difuz_tc[] 	= {0.4, 0.1, 0.1, 1};
 GLfloat ambient_z[] 	= {0.1, 1, 0.3, 1 }; /*zeleno*/
 GLfloat difuz_z[] 	= {0.1, 1, 0.1, 1};
 
+
+/*komponente za boss kokosku*/
+GLfloat ambient_g[] 	= {0.3, 0.3, 0.3, 1 }; /*zlatno*/
+GLfloat difuz_g[] 	= {1, 0.7, 0.1, 1};
+GLfloat ambient_w[] 	= {0.2, 0.2, 0.2, 1 }; /*bela*/
+GLfloat difuz_w[] 	= {0.9, 0.9, 0.9, 1};
+GLfloat ambient_lw[] 	= {0.1, 0.1, 0.1, 1 }; /*svetlija bela*/
+GLfloat difuz_lw[] 	= {0.1, 0.1, 0.1, 1};
+
 static float bullet_xpos[MAX_BULLET_NUMBER]; /*x koordinata metka*/
 static float bullet_ypos[MAX_BULLET_NUMBER]; /*y koordinata metka*/
 
@@ -67,9 +76,10 @@ static float BOSS_CHICKEN_SPEED = 0.1;
 
 int numOfDeathChickens;
 static float v_x=0.4; /*brzina kokoske po x*/
+bool fullScreen;
 bool lvl2; /*Indikator za iscrtavanje drugog nivoa*/
-static int animation_ongoing;   /* Fleg koji odredjuje da li je
-                                 * animacija u toku. */
+static int animation_ongoing;   /* Fleg koji odredjuje da li je                   
+              * animacija u toku. */
 void drawPlane();
 void drawPlaneColider();
 void drawBullet();
@@ -82,6 +92,8 @@ void drawBossChicken();
 void drawBossChickenColider();
 void drawBossChickenEgg();
 void drawBossChickenEggColider();
+
+void drawElectricHorns();
 
 static void on_display(void);
 static void on_keyboard(unsigned char key, int x, int y);
@@ -96,7 +108,6 @@ void kolizija_jaje_avion();
 
 void inicijalizacija_osvetljenja();
 void init();
-
 
 typedef struct{
 	double x;
@@ -121,6 +132,7 @@ int main(int argc, char **argv){
 	glutInitWindowSize(1200, 800);
 	glutInitWindowPosition(100, 100);
 	glutCreateWindow(argv[0]);
+	glutFullScreen();
 
 	init();
 
@@ -133,6 +145,7 @@ void init(){
 	glutDisplayFunc(on_display);
 	glutKeyboardFunc(on_keyboard);
 	glutReshapeFunc(on_reshape);
+	fullScreen=true;
 
 	srand(time(NULL));
 
@@ -152,10 +165,10 @@ void init(){
             bullet_xpos[i] = 0;
             bullet_ypos[i] = -1;
         }
-
 	numOfDeathChickens=0;
 	lvl2=false;
 	bossChickenHealth=BOSS_CHICKEN_STRENGTH;
+
 	/*inicijalizacija 3 reda kokosaka(colideri njihovi)*/
 	for(int i =0; i<10; i++){
 		kokoske1[i].x = 0;
@@ -216,7 +229,14 @@ static void on_keyboard(unsigned char key, int x, int y){
       		  break;
 		case 'Q':
 		case 'q':
-			glutFullScreen();
+			fullScreen = !fullScreen;
+			if(fullScreen){
+				glutFullScreen();
+			}
+			else{
+				glutReshapeWindow(1200, 800);
+				glutInitWindowPosition(100, 100);
+			}
 			break;
 		case ' ':
        			 /* Trazimo prazno mesto tj gledamo koji metak je otisao predaleko i na to
@@ -312,6 +332,9 @@ static void on_display(void){
 	glPopMatrix();
 
 	if(lvl2){
+		glPushMatrix();	
+			drawElectricHorns();
+		glPopMatrix();
 		glPushMatrix();
 			glTranslatef(bcx_curr, -bcy_curr, 0);
 			drawBossChicken();
@@ -386,8 +409,8 @@ void drawBullet(){
 	for (int i = 0; i < MAX_BULLET_NUMBER; i++)
         	if (bullet_ypos[i] >= 0){
 		glPushMatrix();
-			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_z);
-			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_z);
+			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
 			glColor3f(0.7, 0.7, 0.8);
 			glScalef(0.07,0.4,0.1);
 			glTranslatef(0,-25,0);
@@ -416,15 +439,15 @@ void drawChicken(){
 
 	glPushMatrix();
 		/*telo*/
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_g);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_g);
 		glColor3f(0.5, 0.1, 0.1);
 		glTranslatef(-22, 10, 0);
 		glScalef(0.5, 1, 0.5);
 		glutSolidSphere(1, 10, 10);
 		/*glava*/
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_ttc);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_ttc);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_tc);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_tc);
 		glColor3f(0.7, 0.2, 0.2);
 		glTranslatef(0, 1, 0);
 		glScalef(0.5, 0.5, .5);
@@ -443,6 +466,8 @@ void drawChicken(){
 		glTranslatef(-1, 0, 0);
 		glutSolidCube(1);
 		
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_ttc);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_ttc);
 		glColor3f(0.7, 0.1, 0.1);
 		glScalef(0.3, 4, 1);
 		glTranslatef(-1.2, -0.5, 0);
@@ -483,8 +508,8 @@ void drawChickenColider(){
 void drawChickenEgg(){
 
 	glPushMatrix();
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_z);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_z);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
 		glColor3f(0.7, 0.7, 0.8);
 		glScalef(0.06,0.1,0.02);
 		glTranslatef(0, -20, 0);//zakomentarisi kad odradis koliziju
@@ -499,7 +524,7 @@ void drawChickenEggColider(){
 	for(int i=0; i<10;i++){
 		if(jaje1[i].go && kokoske1[i].alive){
 			glBegin(GL_POLYGON);
-				printf("%lf\n", cx_curr);
+				//printf("%lf\n", cx_curr);
 				glVertex3f(jaje1[i].x, jaje1[i].y, 0);//gornja leva
 				glVertex3f(jaje1[i].x + 1 , jaje1[i].y, 0);
 				glVertex3f(jaje1[i].x + 1, jaje1[i].y - 1, 0);//donja desna
@@ -509,28 +534,53 @@ void drawChickenEggColider(){
 	}
 }
 
+
+void drawElectricHorns(){
+
+	float distanceX=0;
+	float distanceY=0;
+	glPushMatrix();
+	glTranslatef(bcx_curr, 35-bcy_curr, 0);
+	for(int i=0;i<30;i++){
+		float distanceX = distanceX + rand()%15+2;
+		float distanceY = distanceY + rand()%15+2;
+		glPushMatrix();
+			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
+			glScalef(0.01,0.01,0.007);
+			glTranslatef(distanceX, distanceY, 0);
+			glutSolidSphere(7, 10, 10);
+		glPopMatrix();
+		glPushMatrix();
+			glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+			glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
+			glScalef(0.01,0.01,0.007);
+			glTranslatef(-distanceX, distanceY, 0);
+			glutSolidSphere(7, 10, 10);
+		glPopMatrix();
+	}
+	glPopMatrix();
+}
 /*boss kokoska iz lvl2*/
 void drawBossChicken(){
-
-	glPushMatrix();
+		glPushMatrix();
 		/*telo*/
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
 		glColor3f(0.5, 0.1, 0.1);
 		glTranslatef(0, 30, 0);
 		glScalef(2.5, 3, 2.5);
 		glutSolidSphere(1, 10, 10);
 		/*glava*/
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_ttc);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_ttc);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_g);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_g);
 		glColor3f(0.7, 0.2, 0.2);
 		glTranslatef(0, 1, 0);
 		glScalef(0.5, 0.5, .5);
 		glutSolidSphere(1, 10, 10);
-		
 		/*desno krilo*/
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_tc);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_tc);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_g);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_g);
 		glColor3f(0.7, 0.1, 0.1);
 		glScalef(6, 1, 1);
 		glTranslatef(0.5, -0.5, 0);
@@ -580,8 +630,8 @@ void drawBossChickenColider(){
 void drawBossChickenEgg(){
 
 	glPushMatrix();
-		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_c);
-		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_c);
+		glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_w);
+		glMaterialfv(GL_FRONT, GL_DIFFUSE, difuz_w);
 		glColor3f(0.7, 0.7, 0.8);
 		glScalef(0.14,0.4,0.1);
 		glTranslatef(0,75,0);
@@ -666,6 +716,7 @@ static void on_timer1(int value){
 		//kretanje metka kraj
 
 
+		
 		//jaje kokoske pocetak
 		if(eggy_curr<EGG_MAX_Y)
 			eggy_curr +=1;
